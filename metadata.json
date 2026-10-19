@@ -1,0 +1,6 @@
+{
+  "name": "Nusantara: Takhta, Sekutu, & Prahara",
+  "description": "Board game strategi berbasis sejarah Nusantara dengan Game Master cerdas, 24 petak dalam 3 era, sistem rempah, diplomasi, prahara, dan pertempuran.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

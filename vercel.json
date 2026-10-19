@@ -1,0 +1,9 @@
+{
+  "framework": "vite",
+  "buildCommand": "vite build",
+  "outputDirectory": "dist",
+  "rewrites": [
+    { "source": "/api/gm-narrate", "destination": "/api/gm-narrate" },
+    { "source": "/(.*)", "destination": "/index.html" }
+  ]
+}
