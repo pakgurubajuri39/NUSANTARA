@@ -24,12 +24,14 @@ import {
 import { Board } from './components/Board';
 import { GMChroniclePanel } from './components/GMChroniclePanel';
 import { PlayerDashboard } from './components/PlayerDashboard';
+import { LandingPage } from './components/LandingPage';
 import { ActionModal } from './components/modals/ActionModal';
 import { BattleModal } from './components/modals/BattleModal';
 import { DiplomacyModal } from './components/modals/DiplomacyModal';
 import { SetupModal } from './components/modals/SetupModal';
 import { TileDetailModal } from './components/modals/TileDetailModal';
 import { VictoryModal } from './components/modals/VictoryModal';
+import { RulesGuideModal } from './components/modals/RulesGuideModal';
 
 import { 
   Crown, 
@@ -73,13 +75,15 @@ export default function App() {
   const [selectedInspectTile, setSelectedInspectTile] = useState<BoardTile | null>(null);
   const [showDiplomacyModal, setShowDiplomacyModal] = useState(false);
   const [showRulesGuide, setShowRulesGuide] = useState(false);
+  const [showSetupModal, setShowSetupModal] = useState(false);
   const [battleState, setBattleState] = useState<{
     tileId: number;
     attackerId: string;
     defenderId: string;
   } | null>(null);
 
-  const activePlayer = gameState.players[gameState.currentTurnIndex];
+  // Safe active player fallback to prevent any null-dereference crashes
+  const activePlayer: Player | undefined = gameState.players[gameState.currentTurnIndex] || gameState.players[0];
 
   // Sound toggle
   const toggleSound = () => {
@@ -191,141 +195,153 @@ Kaki baginda menginjak tanah Kutai Martapura di tepi riak Mahakam. Di hadapan pr
         clearInterval(stepInterval);
         soundEngine.playBonang(1.3);
 
-        const newPos = tempPos;
-        const targetTile = gameState.tiles.find((t) => t.id === newPos)!;
+        try {
+          const newPos = tempPos;
+          const targetTile = gameState.tiles.find((t) => t.id === newPos) || gameState.tiles[0];
 
-        // Update player position & bonus if crossed Kutai / Pelabuhan (Sriwijaya trait)
-        let updatedCoins = activePlayer.coins;
-        let bonusNotes = '';
-        if (crossedStart) {
-          updatedCoins += 20; // 20 gold for full circuit
-          bonusNotes += ' (+20g putaran peta)';
-        }
-      if (targetTile.type === 'pelabuhan' && activePlayer.factionId === 'sriwijaya') {
-        updatedCoins += 15;
-        bonusNotes += ' (+15g Kedaulatan Maritim Sriwijaya)';
-      }
+          // Update player position & bonus if crossed Kutai / Pelabuhan (Sriwijaya trait)
+          let updatedCoins = activePlayer.coins;
+          let bonusNotes = '';
+          if (crossedStart) {
+            updatedCoins += 20; // 20 gold for full circuit
+            bonusNotes += ' (+20g putaran peta)';
+          }
+          if (targetTile.type === 'pelabuhan' && activePlayer.factionId === 'sriwijaya') {
+            updatedCoins += 15;
+            bonusNotes += ' (+15g Kedaulatan Maritim Sriwijaya)';
+          }
 
-      // Determine Tile Status Text
-      let statusText = 'Wilayah Netral (Belum Berpemilik)';
-      const isVocOwned = gameState.vocTerritories.includes(targetTile.id);
-      if (isVocOwned) {
-        statusText = 'Dikuasai Garnisun VOC Kompeni';
-      } else if (targetTile.ownerId) {
-        const owner = gameState.players.find((p) => p.id === targetTile.ownerId);
-        statusText = owner ? `Dikuasai oleh ${owner.name} (${owner.factionName})` : 'Wilayah Khusus';
-      } else if (targetTile.type === 'situs_suci') {
-        statusText = 'Situs Suci Bersejarah (Candi Borobudur)';
-      } else if (targetTile.type === 'pasar_rempah') {
-        statusText = 'Bursa Pasar Rempah Nusantara';
-      } else if (targetTile.type === 'prahara') {
-        statusText = 'Pusat Prahara Sejarah (Perang Paregreg)';
-      } else if (targetTile.type === 'bentrokan_voc') {
-        statusText = 'Pangkalan Armada Meriam VOC';
-      }
+          // Determine Tile Status Text
+          let statusText = 'Wilayah Netral (Belum Berpemilik)';
+          const isVocOwned = gameState.vocTerritories.includes(targetTile.id);
+          if (isVocOwned) {
+            statusText = 'Dikuasai Garnisun VOC Kompeni';
+          } else if (targetTile.ownerId) {
+            const owner = gameState.players.find((p) => p.id === targetTile.ownerId);
+            statusText = owner ? `Dikuasai oleh ${owner.name} (${owner.factionName})` : 'Wilayah Khusus';
+          } else if (targetTile.type === 'situs_suci') {
+            statusText = 'Situs Suci Bersejarah (Candi Borobudur)';
+          } else if (targetTile.type === 'pasar_rempah') {
+            statusText = 'Bursa Pasar Rempah Nusantara';
+          } else if (targetTile.type === 'prahara') {
+            statusText = 'Pusat Prahara Sejarah (Perang Paregreg)';
+          } else if (targetTile.type === 'bentrokan_voc') {
+            statusText = 'Pangkalan Armada Meriam VOC';
+          }
 
-      // Fetch or compute narration
-      const narration = await getGMNarration({
-        player: { ...activePlayer, coins: updatedCoins, position: newPos },
-        tile: targetTile,
-        diceRoll: finalRoll,
-        tileStatusText: statusText,
-      });
+          // Fetch or compute narration
+          const narration = await getGMNarration({
+            player: { ...activePlayer, coins: updatedCoins, position: newPos },
+            tile: targetTile,
+            diceRoll: finalRoll,
+            tileStatusText: statusText,
+          });
 
-      // Actions available
-      const actionsList: string[] = [];
-      if (targetTile.type === 'wilayah' || targetTile.type === 'pelabuhan' || targetTile.type === 'wilayah_rempah') {
-        if (!targetTile.ownerId && !isVocOwned) {
-          actionsList.push(`Klaim Damai Wilayah ${targetTile.name} (${targetTile.cost}g)`);
-          actionsList.push('Biarkan Wilayah Kosong');
-        } else if (targetTile.ownerId && targetTile.ownerId !== activePlayer.id) {
-          actionsList.push(`Bayar Upeti / Sewa Transit (${targetTile.rent}g)`);
-          actionsList.push('Kobarkan Serangan Militer Rebut Wilayah!');
-        } else {
-          actionsList.push('Singgah di Wilayah Sendiri (Bebas Sewa)');
-        }
-      } else if (targetTile.type === 'situs_suci') {
-        actionsList.push('Tegakkan Legitimasi Suci Borobudur (+2 Poin Kejayaan)');
-      } else if (targetTile.type === 'pasar_rempah') {
-        actionsList.push('Beli atau Jual Komoditas Rempah (Lada, Cengkeh, Pala)');
-        actionsList.push('Lewati Pasar Rempah');
-      } else if (targetTile.type === 'prahara') {
-        actionsList.push('Hadapi Pergolakan Internal Takhta Paregreg (+1 Kerentanan)');
-      } else if (targetTile.type === 'bentrokan_voc') {
-        actionsList.push('Bayar Sogokan Kompeni VOC (30g)');
-        actionsList.push('Pertahankan Martabat Lawan Armada VOC');
-      }
-      actionsList.push('Buka Balai Diplomasi / Rekrut Pasukan / Lewati Giliran');
+          // Actions available
+          const actionsList: string[] = [];
+          if (targetTile.type === 'wilayah' || targetTile.type === 'pelabuhan' || targetTile.type === 'wilayah_rempah') {
+            if (!targetTile.ownerId && !isVocOwned) {
+              actionsList.push(`Klaim Damai Wilayah ${targetTile.name} (${targetTile.cost}g)`);
+              actionsList.push('Biarkan Wilayah Kosong');
+            } else if (targetTile.ownerId && targetTile.ownerId !== activePlayer.id) {
+              actionsList.push(`Bayar Upeti / Sewa Transit (${targetTile.rent}g)`);
+              actionsList.push('Kobarkan Serangan Militer Rebut Wilayah!');
+            } else {
+              actionsList.push('Singgah di Wilayah Sendiri (Bebas Sewa)');
+            }
+          } else if (targetTile.type === 'situs_suci') {
+            actionsList.push('Tegakkan Legitimasi Suci Borobudur (+2 Poin Kejayaan)');
+          } else if (targetTile.type === 'pasar_rempah') {
+            actionsList.push('Beli atau Jual Komoditas Rempah (Lada, Cengkeh, Pala)');
+            actionsList.push('Lewati Pasar Rempah');
+          } else if (targetTile.type === 'prahara') {
+            actionsList.push('Hadapi Pergolakan Internal Takhta Paregreg (+1 Kerentanan)');
+          } else if (targetTile.type === 'bentrokan_voc') {
+            actionsList.push('Bayar Sogokan Kompeni VOC (30g)');
+            actionsList.push('Pertahankan Martabat Lawan Armada VOC');
+          }
+          actionsList.push('Buka Balai Diplomasi / Rekrut Pasukan / Lewati Giliran');
 
-      // Create Turn Log in Section 6 Format
-      const updatedPlayerObj: Player = {
-        ...activePlayer,
-        position: newPos,
-        coins: updatedCoins,
-      };
+          // Create Turn Log in Section 6 Format
+          const updatedPlayerObj: Player = {
+            ...activePlayer,
+            position: newPos,
+            coins: updatedCoins,
+          };
 
-      const markdownString = generateGMChronicleMarkdown({
-        player: updatedPlayerObj,
-        tile: targetTile,
-        diceRoll: finalRoll,
-        tileStatusText: statusText,
-        narration,
-        actions: actionsList,
-        tiles: gameState.tiles,
-      });
+          const markdownString = generateGMChronicleMarkdown({
+            player: updatedPlayerObj,
+            tile: targetTile,
+            diceRoll: finalRoll,
+            tileStatusText: statusText,
+            narration,
+            actions: actionsList,
+            tiles: gameState.tiles,
+          });
 
-      const newLog: TurnLog = {
-        id: `turn-${Date.now()}`,
-        turnNumber: gameState.logs.length + 1,
-        roundNumber: gameState.currentRound,
-        playerId: activePlayer.id,
-        playerName: activePlayer.name,
-        factionName: activePlayer.factionName,
-        era: targetTile.era,
-        diceRoll: finalRoll,
-        destinationTileId: newPos,
-        destinationTileName: targetTile.name,
-        destinationTileType: targetTile.type,
-        tileStatusText: statusText,
-        narration,
-        actionTakenText: `Mendarat di ${targetTile.name}${bonusNotes}`,
-        markdownFormatted: markdownString,
-        timestamp: Date.now(),
-      };
+          const newLog: TurnLog = {
+            id: `turn-${Date.now()}`,
+            turnNumber: gameState.logs.length + 1,
+            roundNumber: gameState.currentRound,
+            playerId: activePlayer.id,
+            playerName: activePlayer.name,
+            factionName: activePlayer.factionName,
+            era: targetTile.era,
+            diceRoll: finalRoll,
+            destinationTileId: newPos,
+            destinationTileName: targetTile.name,
+            destinationTileType: targetTile.type,
+            tileStatusText: statusText,
+            narration,
+            actionTakenText: `Mendarat di ${targetTile.name}${bonusNotes}`,
+            markdownFormatted: markdownString,
+            timestamp: Date.now(),
+          };
 
-      // Determine modal type to trigger
-      let modalAction: GameState['activeActionModal'] = null;
+          // Determine modal type to trigger
+          let modalAction: GameState['activeActionModal'] = null;
 
-      if (!targetTile.ownerId && !isVocOwned && (targetTile.type === 'wilayah' || targetTile.type === 'pelabuhan' || targetTile.type === 'wilayah_rempah')) {
-        modalAction = { type: 'claim_tile', tileId: newPos };
-      } else if (targetTile.ownerId && targetTile.ownerId !== activePlayer.id) {
-        modalAction = { type: 'enemy_tile', tileId: newPos, ownerId: targetTile.ownerId };
-      } else if (targetTile.type === 'situs_suci') {
-        modalAction = { type: 'sacred_site', tileId: newPos };
-      } else if (targetTile.type === 'pasar_rempah') {
-        modalAction = { type: 'spice_market', tileId: newPos };
-      } else if (targetTile.type === 'prahara') {
-        modalAction = { type: 'paregreg', tileId: newPos };
-      } else if (targetTile.type === 'bentrokan_voc' || isVocOwned) {
-        modalAction = { type: 'voc_clash', tileId: newPos };
-      }
+          if (!targetTile.ownerId && !isVocOwned && (targetTile.type === 'wilayah' || targetTile.type === 'pelabuhan' || targetTile.type === 'wilayah_rempah')) {
+            modalAction = { type: 'claim_tile', tileId: newPos };
+          } else if (targetTile.ownerId && targetTile.ownerId !== activePlayer.id) {
+            modalAction = { type: 'enemy_tile', tileId: newPos, ownerId: targetTile.ownerId };
+          } else if (targetTile.ownerId && targetTile.ownerId === activePlayer.id) {
+            modalAction = activePlayer.isAI ? null : { type: 'friendly_tile', tileId: newPos };
+          } else if (targetTile.type === 'situs_suci') {
+            modalAction = { type: 'sacred_site', tileId: newPos };
+          } else if (targetTile.type === 'pasar_rempah') {
+            modalAction = { type: 'spice_market', tileId: newPos };
+          } else if (targetTile.type === 'prahara') {
+            modalAction = { type: 'paregreg', tileId: newPos };
+          } else if (targetTile.type === 'bentrokan_voc' || isVocOwned) {
+            modalAction = { type: 'voc_clash', tileId: newPos };
+          } else if (!activePlayer.isAI) {
+            modalAction = { type: 'friendly_tile', tileId: newPos };
+          }
 
-      setGameState((prev) => {
-        const nextPlayers = prev.players.map((p) => (p.id === activePlayer.id ? updatedPlayerObj : p));
-        return {
-          ...prev,
-          players: nextPlayers,
-          lastDiceRoll: finalRoll,
-          isRolling: false,
-          gmThinking: false,
-          logs: [...prev.logs, newLog],
-          activeActionModal: modalAction,
-        };
-      });
+          setGameState((prev) => {
+            const nextPlayers = prev.players.map((p) => (p.id === activePlayer.id ? updatedPlayerObj : p));
+            return {
+              ...prev,
+              players: nextPlayers,
+              lastDiceRoll: finalRoll,
+              isRolling: false,
+              gmThinking: false,
+              logs: [...prev.logs, newLog],
+              activeActionModal: modalAction,
+            };
+          });
 
-        // AI auto decision if AI player
-        if (activePlayer.isAI && modalAction) {
-          handleAIDecision(activePlayer, modalAction, targetTile);
+          // AI auto decision if AI player
+          if (activePlayer.isAI && modalAction) {
+            handleAIDecision(activePlayer, modalAction, targetTile);
+          } else if (activePlayer.isAI && !modalAction) {
+            setTimeout(() => proceedToNextTurn(), 1000);
+          }
+        } catch (err) {
+          console.error('Safe recovery from dice roll error:', err);
+          setGameState((prev) => ({ ...prev, isRolling: false }));
+          proceedToNextTurn();
         }
       }
     }, 220);
@@ -352,6 +368,7 @@ Kaki baginda menginjak tanah Kutai Martapura di tepi riak Mahakam. Di hadapan pr
           handleInitiateBattle(tile.id, bot.id, tile.ownerId!);
         } else {
           handlePayRent(tile.id, rent);
+          closeActionModalAndNext();
         }
       } else if (modalAction.type === 'sacred_site') {
         handleBlessBorobudur();
@@ -371,6 +388,8 @@ Kaki baginda menginjak tanah Kutai Martapura di tepi riak Mahakam. Di hadapan pr
         } else {
           handleHandleVOC('fight');
         }
+      } else {
+        closeActionModalAndNext();
       }
     }, 1200);
   };
@@ -698,7 +717,8 @@ Kaki baginda menginjak tanah Kutai Martapura di tepi riak Mahakam. Di hadapan pr
     // Trigger prahara penalty: reset vulnerability, lose 1 territory or coins
     setTimeout(() => {
       setGameState((prev) => {
-        const target = prev.players.find((p) => p.id === playerId)!;
+        const target = prev.players.find((p) => p.id === playerId);
+        if (!target) return prev;
         let updatedTerritories = [...target.territories];
         let updatedTiles = [...prev.tiles];
 
@@ -728,9 +748,7 @@ Kaki baginda menginjak tanah Kutai Martapura di tepi riak Mahakam. Di hadapan pr
           tileStatusText: card.title,
           narration: `Kerentanan perpecahan takhta mencapai puncaknya! ${card.historicalContext} ${card.effectDescription}`,
           actionTakenText: `Prahara Meletus: ${card.title}`,
-          markdownFormatted: `⚠️ PRAHARA SEJARAH MEMBARA: ${card.title}
-📜 Konteks: ${card.historicalContext}
-💥 Dampak: ${card.effectDescription}`,
+          markdownFormatted: `⚠️ PRAHARA SEJARAH MEMBARA: ${card.title}\n📜 Konteks: ${card.historicalContext}\n💥 Dampak: ${card.effectDescription}`,
           timestamp: Date.now(),
         };
 
@@ -763,31 +781,36 @@ Kaki baginda menginjak tanah Kutai Martapura di tepi riak Mahakam. Di hadapan pr
   // 14. Turn Advancement
   const proceedToNextTurn = () => {
     setGameState((prev) => {
+      const totalPlayers = prev.players.length;
+      if (totalPlayers === 0) return prev;
+
       const activePlayers = prev.players.filter((p) => !p.bankrupt);
-      if (activePlayers.length <= 1 && prev.players.length > 1) {
+      if (activePlayers.length <= 1 && totalPlayers > 1) {
         return {
           ...prev,
           gameOver: true,
           winner: activePlayers[0] || prev.players[0],
           winReason: 'Seluruh kerajaan lawan telah bangkrut dan tak sanggup mempertahankan takhta!',
+          activeActionModal: null,
         };
       }
 
-      let nextIndex = (prev.currentTurnIndex + 1) % prev.players.length;
+      let nextIndex = (prev.currentTurnIndex + 1) % totalPlayers;
       let nextRound = prev.currentRound;
 
       if (nextIndex === 0) {
         nextRound += 1;
         // Fluctuating spice market prices
+        const currentPrices = prev.spicePrices || { lada: 22, cengkeh: 32, pala: 44 };
         const newSpicePrices = {
-          lada: Math.max(15, Math.min(40, prev.spicePrices.lada + Math.floor(Math.random() * 9) - 4)),
-          cengkeh: Math.max(20, Math.min(55, prev.spicePrices.cengkeh + Math.floor(Math.random() * 11) - 5)),
-          pala: Math.max(30, Math.min(70, prev.spicePrices.pala + Math.floor(Math.random() * 13) - 6)),
+          lada: Math.max(15, Math.min(40, currentPrices.lada + Math.floor(Math.random() * 9) - 4)),
+          cengkeh: Math.max(20, Math.min(55, currentPrices.cengkeh + Math.floor(Math.random() * 11) - 5)),
+          pala: Math.max(30, Math.min(70, currentPrices.pala + Math.floor(Math.random() * 13) - 6)),
         };
 
         // VOC activates starting round 10 or Era Kolonial
-        let newVocActive = prev.vocActive;
-        let newVocTerritories = [...prev.vocTerritories];
+        let newVocActive = Boolean(prev.vocActive);
+        let newVocTerritories = Array.isArray(prev.vocTerritories) ? [...prev.vocTerritories] : [];
         if (nextRound >= 10 && !prev.vocActive) {
           newVocActive = true;
           // VOC annexes a neutral tile
@@ -800,11 +823,13 @@ Kaki baginda menginjak tanah Kutai Martapura di tepi riak Mahakam. Di hadapan pr
         // Check Max Rounds Victory (Kemenangan Kejayaan)
         if (nextRound > prev.maxRounds) {
           const sortedByGlory = [...prev.players].sort((a, b) => b.gloryPoints - a.gloryPoints);
+          const roundWinner = sortedByGlory[0] || prev.players[0];
           return {
             ...prev,
             gameOver: true,
-            winner: sortedByGlory[0],
-            winReason: `Kemenangan Poin Kejayaan (PK)! Mencapai Poin Kejayaan tertinggi (${sortedByGlory[0].gloryPoints} PK) setelah ${prev.maxRounds} ronde peradaban!`,
+            winner: roundWinner,
+            winReason: `Kemenangan Poin Kejayaan (PK)! Mencapai Poin Kejayaan tertinggi (${roundWinner.gloryPoints} PK) setelah ${prev.maxRounds} ronde peradaban!`,
+            activeActionModal: null,
           };
         }
 
@@ -815,6 +840,7 @@ Kaki baginda menginjak tanah Kutai Martapura di tepi riak Mahakam. Di hadapan pr
           spicePrices: newSpicePrices,
           vocActive: newVocActive,
           vocTerritories: newVocTerritories,
+          activeActionModal: null,
         };
       }
 
@@ -822,6 +848,7 @@ Kaki baginda menginjak tanah Kutai Martapura di tepi riak Mahakam. Di hadapan pr
         ...prev,
         currentRound: nextRound,
         currentTurnIndex: nextIndex,
+        activeActionModal: null,
       };
     });
   };
@@ -905,6 +932,34 @@ Kaki baginda menginjak tanah Kutai Martapura di tepi riak Mahakam. Di hadapan pr
     }
   }, [gameState.currentTurnIndex, gameState.isRolling, gameState.activeActionModal, battleState, gameState.gameStarted]);
 
+  // Initial Landing Page View when newly started
+  if (!gameState.gameStarted) {
+    return (
+      <div className="min-h-screen relative bg-[#0e0805]">
+        <LandingPage
+          onStartGameClick={() => setShowSetupModal(true)}
+          onOpenRulesClick={() => setShowRulesGuide(true)}
+        />
+
+        {/* 1. Setup Modal */}
+        {showSetupModal && (
+          <SetupModal
+            onStartGame={(players) => {
+              setShowSetupModal(false);
+              handleStartGame(players);
+            }}
+            onClose={() => setShowSetupModal(false)}
+          />
+        )}
+
+        {/* 2. Detailed Interactive Rules Guide */}
+        {showRulesGuide && (
+          <RulesGuideModal onClose={() => setShowRulesGuide(false)} />
+        )}
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen text-stone-100 flex flex-col selection:bg-amber-500 selection:text-stone-950 font-sans relative bg-[#0e0805]">
       {/* 3D Realistic Antique Wooden Table Environment Backdrop */}
@@ -960,19 +1015,20 @@ Kaki baginda menginjak tanah Kutai Martapura di tepi riak Mahakam. Di hadapan pr
           <button
             onClick={() => setShowRulesGuide(true)}
             className="p-2 rounded-xl bg-stone-900 hover:bg-stone-800 border border-stone-800 text-stone-300 transition-colors cursor-pointer flex items-center gap-1.5"
-            title="Panduan Aturan Main"
+            title="Panduan Aturan Main Lengkap"
           >
-            <HelpCircle className="w-4 h-4 text-stone-400" />
-            <span className="hidden sm:inline">Panduan</span>
+            <HelpCircle className="w-4 h-4 text-amber-400" />
+            <span className="hidden sm:inline">Kitab Panduan</span>
           </button>
 
-          {/* Reset / New Game */}
+          {/* Reset / Return to Landing Page */}
           <button
             onClick={() => setGameState((prev) => ({ ...prev, gameStarted: false }))}
             className="px-3 py-1.5 rounded-xl bg-amber-600/20 hover:bg-amber-600/30 border border-amber-600/40 text-amber-200 transition-colors cursor-pointer flex items-center gap-1.5"
+            title="Kembali ke Landing Page Papan Game"
           >
             <RotateCcw className="w-3.5 h-3.5" />
-            <span>Mulai Ulang</span>
+            <span>Ke Beranda</span>
           </button>
         </div>
       </header>
@@ -1083,7 +1139,7 @@ Kaki baginda menginjak tanah Kutai Martapura di tepi riak Mahakam. Di hadapan pr
                   {activePlayer.name}
                 </span>
                 <span className="text-[10px] text-amber-300 block truncate">
-                  Petak #{activePlayer.position} · {gameState.tiles.find(t => t.id === activePlayer.position)?.name}
+                  Petak #{activePlayer.position} · {gameState.tiles.find(t => t.id === activePlayer.position)?.name || `Petak #${activePlayer.position}`}
                 </span>
               </div>
             </div>
@@ -1121,47 +1177,53 @@ Kaki baginda menginjak tanah Kutai Martapura di tepi riak Mahakam. Di hadapan pr
         </p>
       </footer>
 
-      {/* MODALS */}
+      {/* MODALS WITH DEFENSIVE SAFE ACCESS */}
 
-      {/* 1. Setup / Initial Game Modal (Section 7) */}
-      {!gameState.gameStarted && (
-        <SetupModal onStartGame={handleStartGame} />
-      )}
+      {/* 1. Action Modal (Empty Tile Claim, Rent, Market, Sacred Site, Paregreg, Friendly) */}
+      {gameState.activeActionModal && activePlayer && (() => {
+        const targetTile = gameState.tiles.find((t) => t.id === gameState.activeActionModal!.tileId);
+        if (!targetTile) return null;
+        const owner = ('ownerId' in gameState.activeActionModal && gameState.activeActionModal.ownerId)
+          ? gameState.players.find((p) => p.id === (gameState.activeActionModal as { ownerId?: string }).ownerId) || null
+          : null;
 
-      {/* 2. Action Modal (Empty Tile Claim, Rent, Market, Sacred Site, Paregreg) */}
-      {gameState.activeActionModal && activePlayer && (
-        <ActionModal
-          modalData={gameState.activeActionModal}
-          tile={gameState.tiles.find((t) => t.id === gameState.activeActionModal!.tileId)!}
-          player={activePlayer}
-          ownerPlayer={
-            ('ownerId' in gameState.activeActionModal && gameState.activeActionModal.ownerId)
-              ? gameState.players.find((p) => p.id === (gameState.activeActionModal as { ownerId?: string }).ownerId) || null
-              : null
-          }
-          spicePrices={gameState.spicePrices}
-          onClaimTile={handleClaimTile}
-          onPayRent={handlePayRent}
-          onInitiateBattle={handleInitiateBattle}
-          onBlessBorobudur={handleBlessBorobudur}
-          onTradeSpice={handleTradeSpice}
-          onHandleParegreg={handleParegregCrisis}
-          onHandleVOC={handleHandleVOC}
-          onClose={closeActionModalAndNext}
-        />
-      )}
+        return (
+          <ActionModal
+            modalData={gameState.activeActionModal}
+            tile={targetTile}
+            player={activePlayer}
+            ownerPlayer={owner}
+            spicePrices={gameState.spicePrices}
+            onClaimTile={handleClaimTile}
+            onPayRent={handlePayRent}
+            onInitiateBattle={handleInitiateBattle}
+            onBlessBorobudur={handleBlessBorobudur}
+            onTradeSpice={handleTradeSpice}
+            onHandleParegreg={handleParegregCrisis}
+            onHandleVOC={handleHandleVOC}
+            onClose={closeActionModalAndNext}
+          />
+        );
+      })()}
 
-      {/* 3. Military Battle Modal */}
-      {battleState && (
-        <BattleModal
-          tile={gameState.tiles.find((t) => t.id === battleState.tileId)!}
-          attacker={gameState.players.find((p) => p.id === battleState.attackerId)!}
-          defender={gameState.players.find((p) => p.id === battleState.defenderId)!}
-          onBattleResolved={handleBattleResolved}
-        />
-      )}
+      {/* 2. Military Battle Modal */}
+      {battleState && (() => {
+        const battleTile = gameState.tiles.find((t) => t.id === battleState.tileId);
+        const attacker = gameState.players.find((p) => p.id === battleState.attackerId);
+        const defender = gameState.players.find((p) => p.id === battleState.defenderId);
+        if (!battleTile || !attacker || !defender) return null;
 
-      {/* 4. Diplomacy Treaty Modal */}
+        return (
+          <BattleModal
+            tile={battleTile}
+            attacker={attacker}
+            defender={defender}
+            onBattleResolved={handleBattleResolved}
+          />
+        );
+      })()}
+
+      {/* 3. Diplomacy Treaty Modal */}
       {showDiplomacyModal && activePlayer && (
         <DiplomacyModal
           activePlayer={activePlayer}
@@ -1171,7 +1233,7 @@ Kaki baginda menginjak tanah Kutai Martapura di tepi riak Mahakam. Di hadapan pr
         />
       )}
 
-      {/* 5. Tile Inspection Modal */}
+      {/* 4. Tile Inspection Modal */}
       {selectedInspectTile && activePlayer && (
         <TileDetailModal
           tile={selectedInspectTile}
@@ -1182,50 +1244,39 @@ Kaki baginda menginjak tanah Kutai Martapura di tepi riak Mahakam. Di hadapan pr
         />
       )}
 
-      {/* 6. Victory Modal */}
-      {gameState.gameOver && gameState.winner && (
+      {/* 5. Victory Modal */}
+      {gameState.gameOver && (
         <VictoryModal
-          winner={gameState.winner}
-          winReason={gameState.winReason}
+          winner={(gameState.winner || gameState.players[0] || {
+            id: 'p1',
+            name: 'Penguasa Nusantara',
+            factionId: 'majapahit',
+            factionName: 'Kemaharajaan Majapahit',
+            rulerName: 'Mahapatih Gajah Mada',
+            rulerTitle: 'Mahapatih Wilwatikta',
+            quote: 'Lamun huwus kalah Nusantara, isun amukti palapa!',
+            weapon: 'Keris Pusaka',
+            color: '#991b1b',
+            textColor: '#ffffff',
+            isAI: false,
+            position: 1,
+            coins: 100,
+            military: 2,
+            spices: { lada: 1, cengkeh: 0, pala: 0 },
+            territories: [],
+            gloryPoints: 10,
+            vulnerability: 0,
+            alliances: {},
+            bankrupt: false,
+          }) as unknown as Player}
+          winReason={gameState.winReason || 'Kemenangan sejarah agung telah diraih!'}
           onRestartGame={() => setGameState((prev) => ({ ...prev, gameStarted: false }))}
         />
       )}
 
-      {/* 7. Rules Guide Modal */}
+      {/* 6. Complete Detailed Interactive Rules Guide */}
       {showRulesGuide && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
-          <div className="relative w-full max-w-lg bg-stone-900 border border-amber-700/60 rounded-3xl p-6 shadow-2xl max-h-[85vh] overflow-y-auto">
-            <h3 className="text-xl font-serif font-bold text-amber-200 mb-3 flex items-center gap-2">
-              <Scroll className="w-5 h-5 text-amber-400" />
-              <span>Panduan Aturan Nusantara Engine</span>
-            </h3>
-            <div className="space-y-3 text-xs text-stone-300 leading-relaxed font-sans">
-              <p>
-                <b>1. Tiga Era Bersejarah:</b> Papan 24 petak terbagi dalam Era Hindu-Buddha (1-8), Era Islam Nusantara (9-16), dan Era Kolonial (17-24).
-              </p>
-              <p>
-                <b>2. Modal Awal:</b> Setiap kerajaan mengawali dengan 100 Koin Emas, 2 Pasukan Militer, 1 Rempah Acak, dan 0 Poin Kejayaan.
-              </p>
-              <p>
-                <b>3. Kerentanan Perpecahan (0-3):</b> Menguasai 3 petak berurutan meningkatkan kerentanan +1. Jika mencapai 3/3, Prahara Sejarah meletus dan memecah kerajaan!
-              </p>
-              <p>
-                <b>4. Syarat Kemenangan:</b>
-                <br />• <i>Kemenangan Dominasi:</i> Menguasai 60% (14 petak) dari total wilayah Nusantara.
-                <br />• <i>Kemenangan Kejayaan:</i> Memiliki Poin Kejayaan (PK) tertinggi setelah 30 ronde peradaban.
-              </p>
-              <p>
-                <b>5. Faksi AI VOC:</b> Mulai ronde ke-10 atau Era Kolonial, armada VOC akan merebut wilayah pesisir dan menuntut upeti monopoli.
-              </p>
-            </div>
-            <button
-              onClick={() => setShowRulesGuide(false)}
-              className="mt-5 w-full py-2.5 rounded-xl bg-amber-600 hover:bg-amber-500 text-stone-950 font-bold text-xs cursor-pointer"
-            >
-              Mengerti & Kembali Bermain
-            </button>
-          </div>
-        </div>
+        <RulesGuideModal onClose={() => setShowRulesGuide(false)} />
       )}
     </div>
   );

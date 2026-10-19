@@ -4,6 +4,7 @@
   "outputDirectory": "dist",
   "rewrites": [
     { "source": "/api/gm-narrate", "destination": "/api/gm-narrate" },
+    { "source": "/api/gm-chat", "destination": "/api/gm-chat" },
     { "source": "/(.*)", "destination": "/index.html" }
   ]
 }

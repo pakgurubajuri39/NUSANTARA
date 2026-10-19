@@ -132,13 +132,13 @@ export const ActionModal: React.FC<ActionModalProps> = ({
         )}
 
         {/* SCENARIO 2: Enemy Territory (Wilayah Lawan) */}
-        {modalData.type === 'enemy_tile' && ownerPlayer && (
+        {modalData.type === 'enemy_tile' && (
           <div className="space-y-4">
             <div className="p-4 rounded-xl bg-stone-950 border border-stone-800 space-y-2">
               <div className="flex items-center justify-between text-xs">
                 <span className="text-stone-400">Penguasa Wilayah:</span>
-                <span className="font-bold" style={{ color: ownerPlayer.color }}>
-                  {ownerPlayer.name} ({ownerPlayer.factionName})
+                <span className="font-bold" style={{ color: ownerPlayer?.color || '#f59e0b' }}>
+                  {ownerPlayer ? `${ownerPlayer.name} (${ownerPlayer.factionName})` : 'Kerajaan Lawan'}
                 </span>
               </div>
               <div className="flex items-center justify-between text-xs">
@@ -158,7 +158,7 @@ export const ActionModal: React.FC<ActionModalProps> = ({
             {isFreeTransit ? (
               <div className="space-y-3">
                 <div className="p-3 rounded-lg bg-sky-950/40 border border-sky-600/40 text-sky-200 text-xs">
-                  🕊️ Karena Anda terikat traktat aliansi dengan {ownerPlayer.name}, Anda bebas melintasi tanah ini tanpa pungutan sewa!
+                  🕊️ Karena Anda terikat traktat aliansi dengan {ownerPlayer?.name || 'pemilik tanah'}, Anda bebas melintasi tanah ini tanpa pungutan sewa!
                 </div>
                 <button
                   onClick={onClose}
@@ -176,16 +176,44 @@ export const ActionModal: React.FC<ActionModalProps> = ({
                   Bayar Upeti ({finalRent}g)
                 </button>
 
-                <button
-                  onClick={() => onInitiateBattle(tile.id, player.id, ownerPlayer.id)}
-                  disabled={player.military <= 0}
-                  className="flex-1 py-3 px-3 rounded-xl bg-gradient-to-r from-red-700 to-rose-600 hover:from-red-600 hover:to-rose-500 text-white text-xs font-serif font-bold shadow-lg shadow-red-900/30 transition-all cursor-pointer flex items-center justify-center gap-1.5"
-                >
-                  <Swords className="w-4 h-4" />
-                  <span>Serang Militer!</span>
-                </button>
+                {ownerPlayer && (
+                  <button
+                    onClick={() => onInitiateBattle(tile.id, player.id, ownerPlayer.id)}
+                    disabled={player.military <= 0}
+                    className="flex-1 py-3 px-3 rounded-xl bg-gradient-to-r from-red-700 to-rose-600 hover:from-red-600 hover:to-rose-500 text-white text-xs font-serif font-bold shadow-lg shadow-red-900/30 transition-all cursor-pointer flex items-center justify-center gap-1.5"
+                  >
+                    <Swords className="w-4 h-4" />
+                    <span>Serang Militer!</span>
+                  </button>
+                )}
               </div>
             )}
+          </div>
+        )}
+
+        {/* SCENARIO 2B: Friendly / Own Territory (Wilayah Sendiri) */}
+        {modalData.type === 'friendly_tile' && (
+          <div className="space-y-4">
+            <div className="p-4 rounded-xl bg-emerald-950/40 border border-emerald-600/50 space-y-2">
+              <div className="flex items-center gap-2 text-emerald-300 font-serif font-bold text-sm">
+                <ShieldCheck className="w-5 h-5 text-emerald-400" />
+                <span>Singgah di Benteng Wilayah Sendiri</span>
+              </div>
+              <p className="text-xs text-stone-300 leading-relaxed">
+                Pasukan Anda disambut gembira oleh rakyat kawula di <b>{tile.name}</b>. Tidak ada upeti atau pungutan sewa yang dikenakan.
+              </p>
+              <div className="p-2.5 rounded-lg bg-stone-950/80 border border-stone-800 text-[11px] text-stone-300 flex justify-between">
+                <span>Benteng Pertahanan:</span>
+                <span className="text-amber-300 font-mono">Level {tile.fortificationLevel} {tile.fortificationLevel > 0 ? '(Diperkokoh)' : '(Standar)'}</span>
+              </div>
+            </div>
+
+            <button
+              onClick={onClose}
+              className="w-full py-3 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-500 hover:from-emerald-500 text-stone-950 font-serif font-bold text-xs tracking-wide shadow-lg cursor-pointer"
+            >
+              Lanjutkan Giliran Berikutnya
+            </button>
           </div>
         )}
 

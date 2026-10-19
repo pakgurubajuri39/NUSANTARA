@@ -51,7 +51,7 @@ export const Board: React.FC<BoardProps> = ({
 }) => {
   const [viewMode, setViewMode] = useState<'circular' | 'photo' | 'grid'>('circular');
   const [isZoomModalOpen, setIsZoomModalOpen] = useState(false);
-  const activePlayer = players[activePlayerIndex];
+  const activePlayer = players[activePlayerIndex] || players[0];
 
   // Helper for icons
   const getTileIcon = (tile: BoardTile) => {

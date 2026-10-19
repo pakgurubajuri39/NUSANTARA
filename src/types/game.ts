@@ -111,6 +111,7 @@ export interface PraharaCard {
 export type ActiveActionModal = 
   | { type: 'claim_tile'; tileId: number; ownerId?: string }
   | { type: 'enemy_tile'; tileId: number; ownerId: string }
+  | { type: 'friendly_tile'; tileId: number; ownerId?: string }
   | { type: 'sacred_site'; tileId: number; ownerId?: string }
   | { type: 'spice_market'; tileId: number; ownerId?: string }
   | { type: 'paregreg'; tileId: number; ownerId?: string }

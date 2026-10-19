@@ -3,13 +3,14 @@ import { FactionData, Player, SpiceType } from '../../types/game';
 import { HISTORICAL_FACTIONS } from '../../data/boardData';
 import { CharacterAvatar } from '../CharacterAvatar';
 import { REAL_CHARACTERS } from '../../data/characters';
-import { Crown, Users, Bot, Sparkles, Shield, Coins, Swords, Check } from 'lucide-react';
+import { Crown, Users, Bot, Sparkles, Shield, Coins, Swords, Check, X } from 'lucide-react';
 
 interface SetupModalProps {
   onStartGame: (players: Player[]) => void;
+  onClose?: () => void;
 }
 
-export const SetupModal: React.FC<SetupModalProps> = ({ onStartGame }) => {
+export const SetupModal: React.FC<SetupModalProps> = ({ onStartGame, onClose }) => {
   const [playerCount, setPlayerCount] = useState<number>(3);
   const [gameMode, setGameMode] = useState<'solo_vs_ai' | 'pass_and_play'>('solo_vs_ai');
 
@@ -97,6 +98,16 @@ export const SetupModal: React.FC<SetupModalProps> = ({ onStartGame }) => {
       <div className="relative w-full max-w-2xl bg-stone-900 border-2 border-amber-600/70 rounded-3xl p-5 sm:p-8 shadow-2xl my-6">
         {/* Top Ornament */}
         <div className="absolute top-0 left-0 right-0 h-2 bg-gradient-to-r from-amber-600 via-yellow-500 to-amber-600" />
+
+        {onClose && (
+          <button
+            onClick={onClose}
+            className="absolute top-4 right-4 p-2 rounded-xl bg-stone-950 text-stone-400 hover:text-stone-200 border border-stone-800 cursor-pointer transition-colors z-20"
+            title="Kembali ke Landing Page"
+          >
+            <X className="w-4 h-4" />
+          </button>
+        )}
 
         {/* Title */}
         <div className="text-center mb-3">

@@ -44,7 +44,7 @@ export const CircularBoard: React.FC<CircularBoardProps> = ({
   canRoll,
   vocTerritories,
 }) => {
-  const activePlayer = players[activePlayerIndex];
+  const activePlayer = players[activePlayerIndex] || players[0];
 
   // Tile icons
   const getTileIcon = (tile: BoardTile) => {
@@ -83,7 +83,8 @@ export const CircularBoard: React.FC<CircularBoardProps> = ({
    * Radius = 41% ensures the tiles fit comfortably inside the outer wooden rim and do not overlap the central map.
    */
   const getCoordinates = (tileId: number) => {
-    const index = (tileId - 1) % 24;
+    const validId = typeof tileId === 'number' && !isNaN(tileId) ? tileId : 1;
+    const index = ((validId - 1) % 24 + 24) % 24;
     const angleDeg = -90 + index * 15;
     const angleRad = (angleDeg * Math.PI) / 180;
     const radius = 41.2;
