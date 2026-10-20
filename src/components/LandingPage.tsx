@@ -351,7 +351,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
           NUSANTARA: Takhta, Sekutu, & Prahara · Board Game Strategis Sejarah Indonesia
         </p>
         <p className="text-[11px] text-stone-400 font-medium">
-          desingn by. Pak GuruAI collaborative with Dr. Fauzan Baihaqi, S.Hum, M.Hum
+          design based on the collaboration between Pak GuruAI and Dr. Fauzan Baihaqi, S.Hum, M.Hum
         </p>
       </footer>
 
