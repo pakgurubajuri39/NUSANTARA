@@ -1173,7 +1173,7 @@ Kaki baginda menginjak tanah Kutai Martapura di tepi riak Mahakam. Di hadapan pr
           NUSANTARA: Takhta, Sekutu, & Prahara · Board Game Strategis Sejarah Indonesia
         </p>
         <p className="text-[11px] text-stone-400 font-medium">
-          design based on the collaboration between Pak GuruAI and Dr. Fauzan Baihaqi, S.Hum, M.Hum
+          design based on the collaboration between Luky, S.Pt, M.Si, Gr and Dr. Fauzan Baihaqi, S.Hum, M.Hum
         </p>
       </footer>
 
